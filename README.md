@@ -16,7 +16,11 @@ echo "JWT_SECRET=$(openssl rand -base64 32)" >> .env
 ./scripts/run.sh
 ```
 
-Приложение стартует на `http://localhost:8080`. Без `JWT_SECRET` запуск прерывается намеренно.
+Нужен JDK 21. Приложение стартует на `http://localhost:8080`. Без `JWT_SECRET` запуск
+прерывается намеренно, как и с ключом короче 32 байт или не в Base64.
+
+При запуске из IDE задайте `JWT_SECRET` в переменных окружения конфигурации запуска:
+IDE не читает `.env`.
 
 ## API
 
@@ -67,28 +71,32 @@ curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/data?q=бор�
 
 ## CI/CD
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — одна job `security`, запускается
-на каждый push в `main` и каждый pull request. Actions закреплены по SHA коммита,
-у `GITHUB_TOKEN` только чтение кода.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — одна job «SAST и SCA». Она запускается
+на каждый push в `main`, на каждый pull request и вручную кнопкой Run workflow во вкладке Actions.
 
-| Шаг | Инструмент | Тип |
+| Шаг | Инструмент | Что проверяет |
 |---|---|---|
-| `SAST: Semgrep` | Semgrep, правила `p/kotlin` `p/java` `p/secrets` | SAST |
-| `SCA: Trivy` | Trivy по `gradle.lockfile` | SCA |
+| `SAST: Semgrep` | Semgrep 1.179.0, правила `p/kotlin` `p/java` `p/secrets` | Исходный код и захардкоженные секреты |
+| `SCA: Trivy` | Trivy по `gradle.lockfile` | Известные уязвимости зависимостей, включая транзитивные |
 
-Любая находка Semgrep и уязвимости уровня HIGH/CRITICAL у Trivy завершают job с ошибкой.
-Отчёты обоих сканеров выводятся в лог job.
+Любая находка Semgrep и уязвимость уровня HIGH или CRITICAL у Trivy завершают job с ошибкой.
+Отчёты обоих сканеров печатаются в лог job и хранятся 30 дней в артефакте `security-reports`
+на странице прогона.
 
-Последний прогон: [Actions → CI](https://github.com/arekalov/infosec-lab1/actions/workflows/ci.yml).
+Сам пайплайн тоже защищён: actions закреплены по SHA коммита, у `GITHUB_TOKEN` только чтение
+кода, версия Semgrep зафиксирована, время job ограничено 15 минутами.
 
-![Прогон CI](docs/img/ci-run.png)
+Последний успешный прогон: [Actions → CI](https://github.com/arekalov/infosec-lab1/actions/workflows/ci.yml).
+
+![Прогон CI: шаги Semgrep и Trivy](docs/img/ci-run.png)
 
 ![Список прогонов](docs/img/actions.png)
 
 ## Проверка API
 
 ```bash
-./scripts/smoke.sh   # 31 проверка по живому API через curl
+./scripts/run.sh     # в первом терминале
+./scripts/smoke.sh   # во втором: 31 проверка по живому API через curl
 ```
 
 Скрипт проходит регистрацию и вход, CRUD, отказ без токена и с подделанной подписью,
