@@ -16,14 +16,8 @@ java {
 	}
 }
 
-// Spring Boot 4.1.1 тянет Tomcat 11.0.24, у которого три CRITICAL-уязвимости
-// (GHSA-9xv2-5v5q-p794, GHSA-gcx9-497g-6cp6, GHSA-h3x4-894j-xpx5), закрытые в 11.0.25.
-// Без этого пина SCA-сканер в CI найдёт их в gradle.lockfile.
+// закрывают уязвимости версий из BOM Spring Boot
 extra["tomcat.version"] = "11.0.26"
-
-// Jackson 3.1.5 из BOM Spring Boot 4.1.1 имеет семь известных уязвимостей HIGH
-// (ReDoS и DoS при разборе чисел и ссылок, GHSA-7hhh-6rmp-j9qf и другие),
-// закрытых в 3.1.7. Без этого пина SCA-сканер в CI остановит сборку.
 extra["jackson-bom.version"] = "3.1.7"
 
 repositories {
@@ -31,16 +25,11 @@ repositories {
 }
 
 dependencies {
-	// spring-boot-h2console сознательно не подключён: веб-консоль H2 — источник
-	// исторических RCE (CVE-2021-42392, CVE-2022-23221) и в защищённом API ей не место.
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-security")
-	// Ради NimbusJwtEncoder/NimbusJwtDecoder: версия nimbus-jose-jwt управляется Spring BOM,
-	// в отличие от сторонних JWT-библиотек, которые тянут собственный Jackson.
 	implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
-	// OWASP Java Encoder — контекстное экранирование пользовательского текста в ответах.
 	implementation("org.owasp.encoder:encoder:1.4.0")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")
@@ -59,14 +48,6 @@ allOpen {
 	annotation("jakarta.persistence.Embeddable")
 }
 
-// Блокировка версий runtime-зависимостей.
-//
-// Зафиксированный gradle.lockfile даёт две вещи: сборка перестаёт зависеть от того,
-// что именно окажется в репозитории на момент запуска, и у SCA-сканеров появляется
-// достоверный перечень версий — без него они видят только объявленные координаты.
-//
-// Обновление после изменения зависимостей:
-//   ./gradlew dependencies --configuration runtimeClasspath --write-locks
 configurations.named("runtimeClasspath") {
 	resolutionStrategy.activateDependencyLocking()
 }
