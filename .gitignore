@@ -43,9 +43,24 @@ out/
 data/
 *.mv.db
 *.trace.db
+*.lock.db
+*.h2.db
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.log
+logs/
 .DS_Store
 
 ### Офисные и локальные файлы ###
 ~$*
+*.docx
+*.doc
+*.pdf
 local.properties
