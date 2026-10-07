@@ -63,29 +63,27 @@ curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/data?q=бор�
 | Перебор и разведка учёток | 5 попыток входа за 5 минут; ответ на неверный пароль неотличим от ответа на несуществующий логин, в том числе по времени | [`LoginRateLimiter.kt`](src/main/kotlin/ru/itmo/infosec/recipes/security/LoginRateLimiter.kt), [`AuthService.kt`](src/main/kotlin/ru/itmo/infosec/recipes/service/AuthService.kt) |
 | Доступ к чужим данным (A01) | Выборка всегда ограничена владельцем; чужой рецепт отдаёт 404, а не 403 | [`RecipeRepository.kt`](src/main/kotlin/ru/itmo/infosec/recipes/repository/RecipeRepository.kt) |
 | Утечка внутренних деталей | Наружу обезличенные сообщения, stacktrace только в лог | [`ApiExceptionHandler.kt`](src/main/kotlin/ru/itmo/infosec/recipes/web/ApiExceptionHandler.kt) |
-| Уязвимые зависимости | `gradle.lockfile`, Tomcat поднят до 11.0.26, консоль H2 отключена, Dependabot | [`build.gradle.kts`](build.gradle.kts) |
+| Уязвимые зависимости | `gradle.lockfile`; Tomcat 11.0.26 и Jackson 3.1.7 вместо уязвимых версий из BOM; консоль H2 отключена; SCA-проверка в CI | [`build.gradle.kts`](build.gradle.kts) |
 
 ## CI/CD
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — на каждый push в `main` и каждый
-pull request. Все actions закреплены по SHA коммита, права `GITHUB_TOKEN` минимальны.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — одна job `security`, запускается
+на каждый push в `main` и каждый pull request. Actions закреплены по SHA коммита,
+у `GITHUB_TOKEN` только чтение кода.
 
-| Job | Инструмент | Тип |
+| Шаг | Инструмент | Тип |
 |---|---|---|
-| `build` | Gradle, 21 тест | — |
-| `sast-codeql` | CodeQL, `security-extended` | SAST |
-| `sast-semgrep` | Semgrep, `p/kotlin` `p/java` `p/secrets` | SAST |
-| `sca-trivy` | Trivy по fat-jar | SCA |
-| `sca-osv` | OSV-Scanner по `gradle.lockfile` | SCA |
+| `SAST: Semgrep` | Semgrep, правила `p/kotlin` `p/java` `p/secrets` | SAST |
+| `SCA: Trivy` | Trivy по `gradle.lockfile` | SCA |
+
+Любая находка Semgrep и уязвимости уровня HIGH/CRITICAL у Trivy завершают job с ошибкой.
+Отчёты обоих сканеров выводятся в лог job.
 
 Последний прогон: [Actions → CI](https://github.com/arekalov/infosec-lab1-recipe-api/actions/workflows/ci.yml).
-Находок нет: CodeQL — 0 из 120 правил, Semgrep — 0 из 117, Trivy — 0.
 
 ![Прогон CI](docs/img/ci-run.png)
 
 ![Список прогонов](docs/img/actions.png)
-
-![Вкладка Security](docs/img/security.png)
 
 ## Тесты
 

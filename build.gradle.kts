@@ -18,8 +18,13 @@ java {
 
 // Spring Boot 4.1.1 тянет Tomcat 11.0.24, у которого три CRITICAL-уязвимости
 // (GHSA-9xv2-5v5q-p794, GHSA-gcx9-497g-6cp6, GHSA-h3x4-894j-xpx5), закрытые в 11.0.25.
-// Без этого пина SCA-сканер в CI найдёт их в fat-jar.
+// Без этого пина SCA-сканер в CI найдёт их в gradle.lockfile.
 extra["tomcat.version"] = "11.0.26"
+
+// Jackson 3.1.5 из BOM Spring Boot 4.1.1 имеет семь известных уязвимостей HIGH
+// (ReDoS и DoS при разборе чисел и ссылок, GHSA-7hhh-6rmp-j9qf и другие),
+// закрытых в 3.1.7. Без этого пина SCA-сканер в CI остановит сборку.
+extra["jackson-bom.version"] = "3.1.7"
 
 repositories {
 	mavenCentral()
