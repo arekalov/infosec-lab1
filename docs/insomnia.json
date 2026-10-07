@@ -1,0 +1,527 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-10-07T20:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v10.0.0",
+  "resources": [
+    {
+      "_id": "wrk_recipe_api",
+      "_type": "workspace",
+      "parentId": null,
+      "name": "Recipe API",
+      "scope": "collection",
+      "description": "Демонстрация лабораторной работы №1. Запускайте папки по порядку: 1 → 4. Перед запуском поднимите приложение: ./gradlew bootRun."
+    },
+    {
+      "_id": "env_recipe_api",
+      "_type": "environment",
+      "parentId": "wrk_recipe_api",
+      "name": "Base Environment",
+      "isPrivate": false,
+      "data": {
+        "base_url": "http://localhost:8080",
+        "username": "chef",
+        "password": "chef-password-2026",
+        "attacker": "mallory",
+        "attacker_password": "mallory-password-2026",
+        "token": "{% response 'body', 'req_auth_login', 'b64::JC5hY2Nlc3NUb2tlbg==::46b', 'never', 60 %}",
+        "attacker_token": "{% response 'body', 'req_sec_attacker_login', 'b64::JC5hY2Nlc3NUb2tlbg==::46b', 'never', 60 %}",
+        "recipe_id": "{% response 'body', 'req_recipes_create', 'b64::JC5pZA==::46b', 'never', 60 %}"
+      },
+      "dataPropertyOrder": {
+        "&": [
+          "base_url",
+          "username",
+          "password",
+          "attacker",
+          "attacker_password",
+          "token",
+          "attacker_token",
+          "recipe_id"
+        ]
+      }
+    },
+    {
+      "_id": "fld_1_auth",
+      "_type": "request_group",
+      "parentId": "wrk_recipe_api",
+      "name": "1. Аутентификация",
+      "description": "",
+      "metaSortKey": 100
+    },
+    {
+      "_id": "fld_2_recipes",
+      "_type": "request_group",
+      "parentId": "wrk_recipe_api",
+      "name": "2. Рецепты",
+      "description": "",
+      "metaSortKey": 200
+    },
+    {
+      "_id": "fld_3_security",
+      "_type": "request_group",
+      "parentId": "wrk_recipe_api",
+      "name": "3. Проверка защиты",
+      "description": "",
+      "metaSortKey": 300
+    },
+    {
+      "_id": "fld_4_delete",
+      "_type": "request_group",
+      "parentId": "wrk_recipe_api",
+      "name": "4. Удаление",
+      "description": "",
+      "metaSortKey": 400
+    },
+    {
+      "_id": "req_auth_register",
+      "_type": "request",
+      "parentId": "fld_1_auth",
+      "name": "Регистрация",
+      "description": "201 Created. Повторный запуск вернёт 409: пользователь уже есть, это нормально.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/register",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"{{ _.username }}\",\n  \"password\": \"{{ _.password }}\"\n}"
+      },
+      "authentication": {},
+      "metaSortKey": 10,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_auth_login",
+      "_type": "request",
+      "parentId": "fld_1_auth",
+      "name": "Вход",
+      "description": "200 OK, в ответе accessToken. Остальные запросы берут токен из этого ответа автоматически.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/login",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"{{ _.username }}\",\n  \"password\": \"{{ _.password }}\"\n}"
+      },
+      "authentication": {},
+      "metaSortKey": 20,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_recipes_create",
+      "_type": "request",
+      "parentId": "fld_2_recipes",
+      "name": "Создать рецепт",
+      "description": "201 Created. id из ответа подставляется в следующие запросы.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/recipes",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"title\": \"Борщ\",\n  \"description\": \"Классический борщ на говяжьем бульоне\",\n  \"ingredients\": [\n    \"свёкла\",\n    \"капуста\",\n    \"говядина\",\n    \"картофель\"\n  ],\n  \"instructions\": \"Сварить бульон, добавить овощи и тушить 40 минут.\",\n  \"cookMinutes\": 120,\n  \"servings\": 6\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token }}",
+        "prefix": "",
+        "disabled": false
+      },
+      "metaSortKey": 30,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_recipes_list",
+      "_type": "request",
+      "parentId": "fld_2_recipes",
+      "name": "Список рецептов",
+      "description": "200 OK, только рецепты текущего пользователя.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/data",
+      "parameters": [],
+      "headers": [],
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token }}",
+        "prefix": "",
+        "disabled": false
+      },
+      "metaSortKey": 40,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_recipes_search",
+      "_type": "request",
+      "parentId": "fld_2_recipes",
+      "name": "Поиск по названию",
+      "description": "200 OK, рецепты, в названии которых есть «борщ».",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/data",
+      "parameters": [
+        {
+          "name": "q",
+          "value": "борщ"
+        }
+      ],
+      "headers": [],
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token }}",
+        "prefix": "",
+        "disabled": false
+      },
+      "metaSortKey": 50,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_recipes_get",
+      "_type": "request",
+      "parentId": "fld_2_recipes",
+      "name": "Получить рецепт",
+      "description": "200 OK.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/recipes/{{ _.recipe_id }}",
+      "parameters": [],
+      "headers": [],
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token }}",
+        "prefix": "",
+        "disabled": false
+      },
+      "metaSortKey": 60,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_recipes_update",
+      "_type": "request",
+      "parentId": "fld_2_recipes",
+      "name": "Обновить рецепт",
+      "description": "200 OK, новое название и число порций.",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/recipes/{{ _.recipe_id }}",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"title\": \"Борщ с пампушками\",\n  \"description\": \"Классический борщ на говяжьем бульоне\",\n  \"ingredients\": [\n    \"свёкла\",\n    \"капуста\",\n    \"говядина\",\n    \"картофель\"\n  ],\n  \"instructions\": \"Сварить бульон, добавить овощи и тушить 40 минут.\",\n  \"cookMinutes\": 120,\n  \"servings\": 8\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token }}",
+        "prefix": "",
+        "disabled": false
+      },
+      "metaSortKey": 70,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_sec_no_token",
+      "_type": "request",
+      "parentId": "fld_3_security",
+      "name": "Без токена",
+      "description": "401 Unauthorized: доступ к данным только с JWT.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/data",
+      "parameters": [],
+      "headers": [],
+      "body": {},
+      "authentication": {},
+      "metaSortKey": 80,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_sec_forged",
+      "_type": "request",
+      "parentId": "fld_3_security",
+      "name": "Поддельная подпись токена",
+      "description": "401 Unauthorized: токен подписан не ключом сервера.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/data",
+      "parameters": [],
+      "headers": [],
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjaGVmIiwicm9sZXMiOlsiVVNFUiJdLCJleHAiOjQxMDI0NDQ4MDB9.c2lnbmF0dXJlLW5vdC1tYWRlLXdpdGgtdGhlLXNlcnZlci1rZXk",
+        "prefix": "",
+        "disabled": false
+      },
+      "metaSortKey": 90,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_sec_alg_none",
+      "_type": "request",
+      "parentId": "fld_3_security",
+      "name": "Токен без подписи (alg=none)",
+      "description": "401 Unauthorized: сервер принимает только HS256.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/data",
+      "parameters": [],
+      "headers": [],
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJjaGVmIiwicm9sZXMiOlsiVVNFUiJdLCJleHAiOjQxMDI0NDQ4MDB9.",
+        "prefix": "",
+        "disabled": false
+      },
+      "metaSortKey": 100,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_sec_sqli_search",
+      "_type": "request",
+      "parentId": "fld_3_security",
+      "name": "SQL-инъекция в поиске",
+      "description": "200 OK и пустой список: строка ищется как текст, а не выполняется как SQL.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/data",
+      "parameters": [
+        {
+          "name": "q",
+          "value": "' OR '1'='1"
+        }
+      ],
+      "headers": [],
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token }}",
+        "prefix": "",
+        "disabled": false
+      },
+      "metaSortKey": 110,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_sec_sqli_login",
+      "_type": "request",
+      "parentId": "fld_3_security",
+      "name": "SQL-инъекция во входе",
+      "description": "401 Unauthorized: логин передаётся в запрос как параметр.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/login",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"admin' OR '1'='1' --\",\n  \"password\": \"anything-at-all\"\n}"
+      },
+      "authentication": {},
+      "metaSortKey": 120,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_sec_xss",
+      "_type": "request",
+      "parentId": "fld_3_security",
+      "name": "XSS в рецепте",
+      "description": "201 Created, но в ответе &lt;script&gt; вместо <script>: текст экранирован.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/recipes",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"title\": \"<script>alert('xss')</script>\",\n  \"description\": \"<img src=x onerror=alert(1)>\",\n  \"ingredients\": [\n    \"свёкла\",\n    \"капуста\",\n    \"говядина\",\n    \"картофель\"\n  ],\n  \"instructions\": \"Сварить бульон, добавить овощи и тушить 40 минут.\",\n  \"cookMinutes\": 120,\n  \"servings\": 6\n}"
+      },
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token }}",
+        "prefix": "",
+        "disabled": false
+      },
+      "metaSortKey": 130,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_sec_weak_password",
+      "_type": "request",
+      "parentId": "fld_3_security",
+      "name": "Слабый пароль",
+      "description": "400 Bad Request: пароль короче 12 символов не принимается.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/register",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"weakling\",\n  \"password\": \"123\"\n}"
+      },
+      "authentication": {},
+      "metaSortKey": 140,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_sec_attacker_register",
+      "_type": "request",
+      "parentId": "fld_3_security",
+      "name": "Регистрация второго пользователя",
+      "description": "201 Created. Повторный запуск вернёт 409, это нормально.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/register",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"{{ _.attacker }}\",\n  \"password\": \"{{ _.attacker_password }}\"\n}"
+      },
+      "authentication": {},
+      "metaSortKey": 150,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_sec_attacker_login",
+      "_type": "request",
+      "parentId": "fld_3_security",
+      "name": "Вход второго пользователя",
+      "description": "200 OK, токен второго пользователя.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/login",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"{{ _.attacker }}\",\n  \"password\": \"{{ _.attacker_password }}\"\n}"
+      },
+      "authentication": {},
+      "metaSortKey": 160,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_sec_foreign_recipe",
+      "_type": "request",
+      "parentId": "fld_3_security",
+      "name": "Чужой рецепт",
+      "description": "404 Not Found: второй пользователь не видит рецепт первого и даже не узнаёт, что он существует.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/recipes/{{ _.recipe_id }}",
+      "parameters": [],
+      "headers": [],
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.attacker_token }}",
+        "prefix": "",
+        "disabled": false
+      },
+      "metaSortKey": 170,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_sec_bruteforce",
+      "_type": "request",
+      "parentId": "fld_3_security",
+      "name": "Подбор пароля",
+      "description": "Отправьте 6 раз подряд: первые 5 ответов 401, шестой 429 Too Many Requests. Блокировка держится 5 минут.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/login",
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"eve\",\n  \"password\": \"wrong-password\"\n}"
+      },
+      "authentication": {},
+      "metaSortKey": 180,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_delete",
+      "_type": "request",
+      "parentId": "fld_4_delete",
+      "name": "Удалить рецепт",
+      "description": "204 No Content.",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/recipes/{{ _.recipe_id }}",
+      "parameters": [],
+      "headers": [],
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token }}",
+        "prefix": "",
+        "disabled": false
+      },
+      "metaSortKey": 190,
+      "settingEncodeUrl": true
+    },
+    {
+      "_id": "req_delete_check",
+      "_type": "request",
+      "parentId": "fld_4_delete",
+      "name": "Удалённый рецепт",
+      "description": "404 Not Found.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/recipes/{{ _.recipe_id }}",
+      "parameters": [],
+      "headers": [],
+      "body": {},
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.token }}",
+        "prefix": "",
+        "disabled": false
+      },
+      "metaSortKey": 200,
+      "settingEncodeUrl": true
+    }
+  ]
+}
