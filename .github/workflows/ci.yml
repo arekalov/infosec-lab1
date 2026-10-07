@@ -15,6 +15,7 @@ jobs:
   security:
     name: SAST и SCA
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       # Все actions закреплены по SHA коммита, а не по подвижному тегу.
       - name: Checkout
@@ -22,9 +23,10 @@ jobs:
 
       # SAST: Semgrep проверяет исходники правилами для Kotlin и Java
       # и ищет захардкоженные секреты. Любая находка завершает job с ошибкой.
+      # Версия зафиксирована, чтобы результат не менялся от прогона к прогону.
       - name: 'SAST: Semgrep'
         run: |
-          pipx install semgrep
+          pipx install semgrep==1.179.0
           semgrep scan --config p/kotlin --config p/java --config p/secrets --error
 
       # SCA: Trivy сверяет зависимости из gradle.lockfile с базами уязвимостей.
