@@ -13,7 +13,7 @@ permissions:
 jobs:
   security:
     name: SAST и SCA
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -36,9 +36,23 @@ jobs:
           output: trivy-report.txt
           exit-code: '1'
 
-      - name: Отчёт Trivy
+      - name: Сводка отчётов
         if: always()
-        run: if [ -f trivy-report.txt ]; then cat trivy-report.txt; fi
+        run: |
+          {
+            echo '### SAST: Semgrep'
+            echo '```'
+            if grep -q 'Scan Summary' semgrep-report.txt 2>/dev/null; then
+              sed -n '/Scan Summary/,$p' semgrep-report.txt
+            elif [ -f semgrep-report.txt ]; then
+              tail -n 15 semgrep-report.txt
+            fi
+            echo '```'
+            echo '### SCA: Trivy'
+            echo '```'
+            if [ -f trivy-report.txt ]; then cat trivy-report.txt; fi
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Сохранить отчёты
         if: always()
