@@ -79,7 +79,7 @@ curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/data?q=бор�
 Любая находка Semgrep и уязвимости уровня HIGH/CRITICAL у Trivy завершают job с ошибкой.
 Отчёты обоих сканеров выводятся в лог job.
 
-Последний прогон: [Actions → CI](https://github.com/arekalov/infosec-lab1-recipe-api/actions/workflows/ci.yml).
+Последний прогон: [Actions → CI](https://github.com/arekalov/infosec-lab1/actions/workflows/ci.yml).
 
 ![Прогон CI](docs/img/ci-run.png)
 
