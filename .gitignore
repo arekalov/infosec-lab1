@@ -45,3 +45,7 @@ data/
 *.trace.db
 .env
 .DS_Store
+
+### Офисные и локальные файлы ###
+~$*
+local.properties
