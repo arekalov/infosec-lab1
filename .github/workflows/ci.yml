@@ -1,11 +1,14 @@
 name: CI
 
 # Проверки безопасности запускаются на каждый push в main и на каждый pull request.
+# workflow_dispatch позволяет перезапустить их вручную, например после публикации
+# новых уязвимостей, когда код не менялся.
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 # GITHUB_TOKEN получает только чтение кода.
 permissions:
