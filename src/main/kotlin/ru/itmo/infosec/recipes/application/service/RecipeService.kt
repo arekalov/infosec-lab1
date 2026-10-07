@@ -1,24 +1,15 @@
-package ru.itmo.infosec.recipes.service
+package ru.itmo.infosec.recipes.application.service
 
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import ru.itmo.infosec.recipes.domain.Recipe
-import ru.itmo.infosec.recipes.repository.RecipeRepository
-import ru.itmo.infosec.recipes.repository.UserAccountRepository
-import ru.itmo.infosec.recipes.web.dto.RecipeRequest
+import ru.itmo.infosec.recipes.application.model.RecipeCommand
+import ru.itmo.infosec.recipes.domain.exception.RecipeNotFoundException
+import ru.itmo.infosec.recipes.domain.model.PageQuery
+import ru.itmo.infosec.recipes.domain.model.PageResult
+import ru.itmo.infosec.recipes.domain.model.Recipe
+import ru.itmo.infosec.recipes.domain.repository.RecipeRepository
+import ru.itmo.infosec.recipes.domain.repository.UserAccountRepository
 
-/** Рецепт не найден — либо его нет, либо он принадлежит другому пользователю. */
-class RecipeNotFoundException(id: Long) : RuntimeException("Recipe $id not found")
-
-/**
- * Операции над рецептами.
- *
- * Каждый метод принимает имя текущего пользователя и передаёт его в запрос к БД.
- * Рецепт чужого пользователя неотличим от несуществующего — ответ в обоих случаях 404,
- * поэтому перебором идентификаторов нельзя выяснить, какие рецепты вообще существуют.
- */
 @Service
 @Transactional(readOnly = true)
 class RecipeService(
@@ -26,47 +17,49 @@ class RecipeService(
     private val users: UserAccountRepository,
 ) {
 
-    fun list(username: String, query: String?, pageable: Pageable): Page<Recipe> =
+    fun list(username: String, query: String?, page: PageQuery): PageResult<Recipe> =
         if (query.isNullOrBlank()) {
-            recipes.findByOwnerUsername(username, pageable)
+            recipes.findAllByOwner(username, page)
         } else {
-            recipes.search(username, query, pageable)
+            recipes.searchByOwner(username, query, page)
         }
 
     fun get(username: String, id: Long): Recipe =
-        recipes.findByIdAndOwnerUsername(id, username) ?: throw RecipeNotFoundException(id)
+        recipes.findByIdAndOwner(id, username) ?: throw RecipeNotFoundException(id)
 
     @Transactional
-    fun create(username: String, request: RecipeRequest): Recipe {
+    fun create(username: String, command: RecipeCommand): Recipe {
         val owner = users.findByUsername(username)
             ?: error("Authenticated user '$username' is missing from the database")
+
         return recipes.save(
             Recipe(
-                title = request.title,
-                description = request.description,
-                ingredients = request.ingredients.toMutableList(),
-                instructions = request.instructions,
-                cookMinutes = request.cookMinutes,
-                servings = request.servings,
+                title = command.title,
+                description = command.description,
+                ingredients = command.ingredients.toMutableList(),
+                instructions = command.instructions,
+                cookMinutes = command.cookMinutes,
+                servings = command.servings,
                 owner = owner,
             ),
         )
     }
 
     @Transactional
-    fun update(username: String, id: Long, request: RecipeRequest): Recipe {
-        val recipe = get(username, id)
-        recipe.title = request.title
-        recipe.description = request.description
-        recipe.ingredients = request.ingredients.toMutableList()
-        recipe.instructions = request.instructions
-        recipe.cookMinutes = request.cookMinutes
-        recipe.servings = request.servings
+    fun update(username: String, id: Long, command: RecipeCommand): Recipe {
+        val recipe = get(username, id).apply {
+            title = command.title
+            description = command.description
+            ingredients = command.ingredients.toMutableList()
+            instructions = command.instructions
+            cookMinutes = command.cookMinutes
+            servings = command.servings
+        }
         return recipes.save(recipe)
     }
 
     @Transactional
     fun delete(username: String, id: Long) {
-        if (recipes.deleteByIdAndOwnerUsername(id, username) == 0L) throw RecipeNotFoundException(id)
+        if (!recipes.deleteByIdAndOwner(id, username)) throw RecipeNotFoundException(id)
     }
 }

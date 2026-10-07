@@ -1,4 +1,4 @@
-package ru.itmo.infosec.recipes.config
+package ru.itmo.infosec.recipes.infrastructure.security
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -8,12 +8,6 @@ import org.springframework.security.oauth2.jwt.JwtEncoder
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 
-/**
- * Подпись и проверка токенов — симметричный HS256 на общем секрете.
- *
- * Декодер настроен явным алгоритмом: без этого токен с заголовком `alg: none`
- * или с другим алгоритмом мог бы быть принят (классическая атака на JWT).
- */
 @Configuration
 class JwtConfig {
 

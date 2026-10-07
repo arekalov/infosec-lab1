@@ -1,4 +1,4 @@
-package ru.itmo.infosec.recipes.security
+package ru.itmo.infosec.recipes.infrastructure.security
 
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
@@ -15,16 +15,6 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 
-/**
- * Middleware, проверяющий JWT на каждом запросе.
- *
- * Работает поверх [JwtDecoder], который проверяет HMAC-подпись, алгоритм и срок
- * действия токена. Никакой ручной разбор Base64 здесь не делается — это ровно тот
- * случай, когда самописная криптография была бы уязвимостью, а не защитой.
- *
- * Если токен есть, но невалиден, запрос немедленно отклоняется с 401: молча
- * пропускать его дальше как анонимный означало бы скрывать проблему от клиента.
- */
 @Component
 class JwtAuthFilter(private val jwtDecoder: JwtDecoder) : OncePerRequestFilter() {
 
@@ -43,7 +33,6 @@ class JwtAuthFilter(private val jwtDecoder: JwtDecoder) : OncePerRequestFilter()
 
         try {
             val jwt = jwtDecoder.decode(token)
-            // Токен без subject не идентифицирует пользователя — доверять ему нечему.
             val subject = jwt.subject ?: throw BadJwtException("Token has no subject")
             val authorities = (jwt.getClaimAsStringList(CLAIM_ROLES) ?: emptyList())
                 .map { SimpleGrantedAuthority("ROLE_$it") }
@@ -51,8 +40,6 @@ class JwtAuthFilter(private val jwtDecoder: JwtDecoder) : OncePerRequestFilter()
             authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
             SecurityContextHolder.getContext().authentication = authentication
         } catch (ex: JwtException) {
-            // В лог — причина, клиенту — только статус: подробности помогли бы
-            // подбирать токен (истёк? не та подпись? не тот алгоритм?).
             log.debug("Rejected JWT: {}", ex.message)
             SecurityContextHolder.clearContext()
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED)

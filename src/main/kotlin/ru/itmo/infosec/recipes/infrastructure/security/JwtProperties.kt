@@ -1,4 +1,4 @@
-package ru.itmo.infosec.recipes.config
+package ru.itmo.infosec.recipes.infrastructure.security
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import java.time.Duration
@@ -6,16 +6,8 @@ import java.util.Base64
 import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 
-/**
- * Настройки подписи JWT.
- *
- * Секрет приходит только из окружения (`JWT_SECRET`) и никогда не лежит в репозитории.
- * Длина проверяется на старте: для HS256 ключ короче 256 бит делает подпись подбираемой,
- * и лучше не запуститься вовсе, чем работать с заведомо слабым ключом.
- */
 @ConfigurationProperties(prefix = "app.jwt")
 data class JwtProperties(
-    /** Base64-строка, минимум 32 байта после декодирования. */
     val secret: String,
     val issuer: String = "recipe-api",
     val ttl: Duration = Duration.ofMinutes(15),

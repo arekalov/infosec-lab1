@@ -1,4 +1,4 @@
-package ru.itmo.infosec.recipes.web
+package ru.itmo.infosec.recipes.presentation.handler
 
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
@@ -13,18 +13,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.WebRequest
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
-import ru.itmo.infosec.recipes.service.InvalidCredentialsException
-import ru.itmo.infosec.recipes.service.RecipeNotFoundException
-import ru.itmo.infosec.recipes.service.TooManyLoginAttemptsException
-import ru.itmo.infosec.recipes.service.UsernameAlreadyTakenException
+import ru.itmo.infosec.recipes.domain.exception.InvalidCredentialsException
+import ru.itmo.infosec.recipes.domain.exception.RecipeNotFoundException
+import ru.itmo.infosec.recipes.domain.exception.TooManyLoginAttemptsException
+import ru.itmo.infosec.recipes.domain.exception.UsernameAlreadyTakenException
 
-/**
- * Единая обработка ошибок в формате RFC 7807 (`application/problem+json`).
- *
- * Принцип: наружу уходит ровно столько, сколько нужно клиенту, чтобы исправить запрос.
- * Текст непредвиденного исключения пишется в лог, а в ответе остаётся обезличенное
- * сообщение — иначе стектрейс и имена классов подсказали бы атакующему устройство системы.
- */
 @RestControllerAdvice
 class ApiExceptionHandler : ResponseEntityExceptionHandler() {
 
@@ -34,10 +27,6 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     fun handleNotFound(ex: RecipeNotFoundException): ProblemDetail =
         problem(HttpStatus.NOT_FOUND, "Recipe not found")
 
-    /**
-     * Один и тот же ответ и на неизвестный логин, и на неверный пароль:
-     * различать их значило бы выдавать список существующих учётных записей.
-     */
     @ExceptionHandler(InvalidCredentialsException::class)
     fun handleInvalidCredentials(ex: InvalidCredentialsException): ProblemDetail =
         problem(HttpStatus.UNAUTHORIZED, "Invalid username or password")
@@ -64,10 +53,6 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Internal error")
     }
 
-    /**
-     * Ошибки валидации — единственный случай, когда мы отдаём подробности:
-     * это данные самого клиента, ничего внутреннего они не раскрывают.
-     */
     override fun handleMethodArgumentNotValid(
         ex: MethodArgumentNotValidException,
         headers: HttpHeaders,

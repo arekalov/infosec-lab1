@@ -1,80 +1,49 @@
-package ru.itmo.infosec.recipes.service
+package ru.itmo.infosec.recipes.application.service
 
-import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import ru.itmo.infosec.recipes.domain.UserAccount
-import ru.itmo.infosec.recipes.repository.UserAccountRepository
-import ru.itmo.infosec.recipes.security.LoginRateLimiter
-import ru.itmo.infosec.recipes.web.dto.LoginRequest
-import ru.itmo.infosec.recipes.web.dto.RegisterRequest
-import ru.itmo.infosec.recipes.web.dto.TokenResponse
-import ru.itmo.infosec.recipes.web.dto.UserResponse
+import ru.itmo.infosec.recipes.application.model.AccessToken
+import ru.itmo.infosec.recipes.application.port.LoginAttemptLimiter
+import ru.itmo.infosec.recipes.application.port.PasswordHasher
+import ru.itmo.infosec.recipes.application.port.TokenProvider
+import ru.itmo.infosec.recipes.domain.exception.InvalidCredentialsException
+import ru.itmo.infosec.recipes.domain.exception.TooManyLoginAttemptsException
+import ru.itmo.infosec.recipes.domain.exception.UsernameAlreadyTakenException
+import ru.itmo.infosec.recipes.domain.model.UserAccount
+import ru.itmo.infosec.recipes.domain.repository.UserAccountRepository
 import java.util.UUID
-
-class UsernameAlreadyTakenException : RuntimeException("Username already taken")
-
-class InvalidCredentialsException : RuntimeException("Invalid credentials")
-
-class TooManyLoginAttemptsException : RuntimeException("Too many login attempts")
 
 @Service
 class AuthService(
     private val users: UserAccountRepository,
-    private val passwordEncoder: PasswordEncoder,
-    private val tokenService: TokenService,
-    private val rateLimiter: LoginRateLimiter,
+    private val passwordHasher: PasswordHasher,
+    private val tokenProvider: TokenProvider,
+    private val loginAttemptLimiter: LoginAttemptLimiter,
 ) {
 
+    private val dummyHash: String by lazy { passwordHasher.hash(UUID.randomUUID().toString()) }
+
     @Transactional
-    fun register(request: RegisterRequest): UserResponse {
-        val username = request.username.lowercase()
-        if (users.existsByUsername(username)) throw UsernameAlreadyTakenException()
+    fun register(username: String, password: String): UserAccount {
+        val normalized = username.lowercase()
+        if (users.existsByUsername(normalized)) throw UsernameAlreadyTakenException()
 
-        // В БД уходит только bcrypt-хэш: соль генерируется внутри него, отдельного
-        // поля под неё не нужно, а исходный пароль нигде не сохраняется и не логируется.
-        val saved = users.save(
-            UserAccount(username = username, passwordHash = hash(request.password)),
-        )
-        return saved.toResponse()
+        return users.save(UserAccount(username = normalized, passwordHash = passwordHasher.hash(password)))
     }
 
-    fun login(request: LoginRequest): TokenResponse {
-        val username = request.username.lowercase()
-        if (!rateLimiter.isAllowed(username)) throw TooManyLoginAttemptsException()
+    fun login(username: String, password: String): AccessToken {
+        val normalized = username.lowercase()
+        if (!loginAttemptLimiter.isAllowed(normalized)) throw TooManyLoginAttemptsException()
 
-        val user = users.findByUsername(username)
-        if (user == null) {
-            // Пароль всё равно прогоняется через bcrypt по заглушке: без этого ответ
-            // на несуществующий логин возвращался бы заметно быстрее, и по времени
-            // ответа можно было бы собрать список существующих учёток.
-            passwordEncoder.matches(request.password, dummyHash)
-            rateLimiter.recordFailure(username)
+        val user = users.findByUsername(normalized)
+        // чтобы время ответа не выдавало, существует ли логин
+        val passwordMatches = passwordHasher.matches(password, user?.passwordHash ?: dummyHash)
+        if (user == null || !passwordMatches) {
+            loginAttemptLimiter.recordFailure(normalized)
             throw InvalidCredentialsException()
         }
 
-        if (!passwordEncoder.matches(request.password, user.passwordHash)) {
-            rateLimiter.recordFailure(username)
-            throw InvalidCredentialsException()
-        }
-
-        rateLimiter.reset(username)
-        return tokenService.issue(user)
+        loginAttemptLimiter.reset(normalized)
+        return tokenProvider.issue(user)
     }
-
-    private fun UserAccount.toResponse() = UserResponse(
-        id = requireNotNull(id),
-        username = username,
-        roles = roles.toSet(),
-        createdAt = createdAt,
-    )
-
-    /**
-     * Хэш от случайной строки, ни с чем не совпадающий.
-     * Считается один раз при первом обращении и живёт только в памяти процесса.
-     */
-    private val dummyHash: String by lazy { hash(UUID.randomUUID().toString()) }
-
-    private fun hash(rawPassword: String): String =
-        checkNotNull(passwordEncoder.encode(rawPassword)) { "Password encoder returned no hash" }
 }

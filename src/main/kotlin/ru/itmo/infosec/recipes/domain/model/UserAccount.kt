@@ -1,4 +1,4 @@
-package ru.itmo.infosec.recipes.domain
+package ru.itmo.infosec.recipes.domain.model
 
 import jakarta.persistence.CollectionTable
 import jakarta.persistence.Column
@@ -12,19 +12,12 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.Table
 import java.time.Instant
 
-/**
- * Учётная запись пользователя.
- *
- * Поле с открытым паролем отсутствует как класс: хранится только bcrypt-хэш,
- * и он не попадает ни в один DTO ответа.
- */
 @Entity
 @Table(name = "users")
 class UserAccount(
     @Column(nullable = false, unique = true, length = USERNAME_MAX)
     var username: String,
 
-    /** bcrypt-хэш, строка вида `$2a$12$...`. Длина фиксированная — 60 символов. */
     @Column(name = "password_hash", nullable = false, length = BCRYPT_HASH_LENGTH)
     var passwordHash: String,
 
@@ -49,10 +42,6 @@ class UserAccount(
         const val BCRYPT_HASH_LENGTH = 60
         const val ROLE_USER = "USER"
 
-        /**
-         * Имя пользователя ограничено безопасным алфавитом.
-         * Это отсекает управляющие символы и разметку ещё до попадания в БД и в ответы.
-         */
         const val USERNAME_PATTERN = "^[a-zA-Z0-9_.-]+$"
     }
 }
