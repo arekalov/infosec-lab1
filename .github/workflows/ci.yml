@@ -26,8 +26,9 @@ jobs:
       # Версия зафиксирована, чтобы результат не менялся от прогона к прогону.
       - name: 'SAST: Semgrep'
         run: |
+          set -o pipefail
           pipx install semgrep==1.179.0
-          semgrep scan --config p/kotlin --config p/java --config p/secrets --error
+          semgrep scan --config p/kotlin --config p/java --config p/secrets --error 2>&1 | tee semgrep-report.txt
 
       # SCA: Trivy сверяет зависимости из gradle.lockfile с базами уязвимостей.
       # Уязвимости уровня HIGH и CRITICAL завершают job с ошибкой.
@@ -39,4 +40,20 @@ jobs:
           scanners: vuln
           severity: CRITICAL,HIGH
           format: table
+          output: trivy-report.txt
           exit-code: '1'
+
+      - name: Отчёт Trivy
+        if: always()
+        run: if [ -f trivy-report.txt ]; then cat trivy-report.txt; fi
+
+      # Отчёты сохраняются даже при упавшей проверке: по ним видно, что нужно исправить.
+      - name: Сохранить отчёты
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-reports
+          path: |
+            semgrep-report.txt
+            trivy-report.txt
+          retention-days: 30
