@@ -24,9 +24,9 @@
         "password": "chef-password-2026",
         "attacker": "mallory",
         "attacker_password": "mallory-password-2026",
-        "token": "{% response 'body', 'req_auth_login', 'b64::JC5hY2Nlc3NUb2tlbg==::46b', 'never', 60 %}",
-        "attacker_token": "{% response 'body', 'req_sec_attacker_login', 'b64::JC5hY2Nlc3NUb2tlbg==::46b', 'never', 60 %}",
-        "recipe_id": "{% response 'body', 'req_recipes_create', 'b64::JC5pZA==::46b', 'never', 60 %}"
+        "token": "",
+        "attacker_token": "",
+        "recipe_id": ""
       },
       "dataPropertyOrder": {
         "&": [
@@ -117,7 +117,8 @@
       },
       "authentication": {},
       "metaSortKey": 20,
-      "settingEncodeUrl": true
+      "settingEncodeUrl": true,
+      "afterResponseScript": "const body = insomnia.response.json();\nif (body.accessToken) {\n  insomnia.collectionVariables.set(\"token\", body.accessToken);\n}\n"
     },
     {
       "_id": "req_recipes_create",
@@ -145,7 +146,8 @@
         "disabled": false
       },
       "metaSortKey": 30,
-      "settingEncodeUrl": true
+      "settingEncodeUrl": true,
+      "afterResponseScript": "const body = insomnia.response.json();\nif (body.id) {\n  insomnia.collectionVariables.set(\"recipe_id\", String(body.id));\n}\n"
     },
     {
       "_id": "req_recipes_list",
@@ -438,7 +440,8 @@
       },
       "authentication": {},
       "metaSortKey": 160,
-      "settingEncodeUrl": true
+      "settingEncodeUrl": true,
+      "afterResponseScript": "const body = insomnia.response.json();\nif (body.accessToken) {\n  insomnia.collectionVariables.set(\"attacker_token\", body.accessToken);\n}\n"
     },
     {
       "_id": "req_sec_foreign_recipe",
