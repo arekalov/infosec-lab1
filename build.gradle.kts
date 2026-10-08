@@ -2,11 +2,11 @@ import com.github.spotbugs.snom.Confidence
 import com.github.spotbugs.snom.Effort
 
 plugins {
-	kotlin("jvm") version "2.3.21"
-	kotlin("plugin.spring") version "2.3.21"
+	kotlin("jvm") version "2.4.21"
+	kotlin("plugin.spring") version "2.4.21"
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
-	kotlin("plugin.jpa") version "2.3.21"
+	kotlin("plugin.jpa") version "2.4.21"
 	id("com.github.spotbugs") version "6.5.12"
 	// в 13.0.0 без ключа NVD уходит пустой apiKey, и NVD отклоняет запросы
 	id("org.owasp.dependencycheck") version "12.2.2"
