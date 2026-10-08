@@ -125,7 +125,7 @@ fun search(@Param("username") username: String, @Param("query") query: String, p
 
 Версии runtime-зависимостей зафиксированы в `gradle.lockfile`. Tomcat и Jackson подняты выше
 версий из BOM Spring Boot, в которых есть известные уязвимости. Веб-консоль H2 отключена.
-Каждый push в `main` и pull request проверяется SCA-сканером в CI.
+Каждый push в `main` и pull request проверяется в CI сканером зависимостей OWASP Dependency-Check.
 
 Код: [`build.gradle.kts`](build.gradle.kts).
 
@@ -133,17 +133,24 @@ fun search(@Param("username") username: String, @Param("query") query: String, p
 
 | Шаг | Инструмент | Что проверяет |
 |---|---|---|
-| `SAST: Semgrep` | Semgrep 1.179.0, правила `p/kotlin` `p/java` `p/secrets` | Исходный код и захардкоженные секреты |
-| `SCA: Trivy` | Trivy по `gradle.lockfile` | Известные уязвимости зависимостей, включая транзитивные |
+| `SAST: SpotBugs + FindSecBugs` | SpotBugs 4.10.4 с плагином FindSecBugs 1.14.0 | Скомпилированный код приложения: инъекции, небезопасное логирование, слабая криптография и другие ошибки |
+| `SCA: OWASP Dependency-Check` | Dependency-Check 12.2.2 по `runtimeClasspath`, база уязвимостей NVD | Известные уязвимости зависимостей, включая транзитивные |
 
-Любая находка Semgrep и уязвимость уровня HIGH или CRITICAL у Trivy завершают job с ошибкой.
-Отчёты обоих сканеров печатаются в лог job и хранятся 30 дней в артефакте `security-reports`
-на странице прогона.
+Любое замечание SpotBugs и уязвимость с оценкой CVSS 7.0 и выше у Dependency-Check завершают job
+с ошибкой. Отчёты обоих сканеров печатаются в сводку прогона и хранятся 30 дней в артефакте
+`security-reports`. База NVD кешируется между прогонами: без ключа NVD первый прогон скачивает
+её целиком, это занимает несколько часов. Если задать секрет `NVD_API_KEY`, загрузка ускорится.
+
+SpotBugs нашёл одну настоящую проблему: `JwtAuthFilter` писал в лог текст ошибки разбора токена
+как есть, и переводы строк из присланного токена позволяли подделать записи лога
+(`CRLF_INJECTION_LOGS`). Теперь `\r` и `\n` заменяются перед записью. Остальные срабатывания
+вызваны особенностями байткода Kotlin и Spring, они исключены с объяснением в
+[`config/spotbugs-exclude.xml`](config/spotbugs-exclude.xml).
 
 Последний успешный прогон: [Actions → CI](https://github.com/arekalov/infosec-lab1/actions/workflows/ci.yml).
 
 ![Прогон CI](docs/img/ci-run.png)
 
-![Шаги Semgrep и Trivy](docs/img/ci-steps.png)
+![Шаги SpotBugs и Dependency-Check](docs/img/ci-steps.png)
 
 ![Список прогонов](docs/img/actions.png)

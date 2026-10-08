@@ -1,9 +1,15 @@
+import com.github.spotbugs.snom.Confidence
+import com.github.spotbugs.snom.Effort
+
 plugins {
 	kotlin("jvm") version "2.3.21"
 	kotlin("plugin.spring") version "2.3.21"
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
 	kotlin("plugin.jpa") version "2.3.21"
+	id("com.github.spotbugs") version "6.5.12"
+	// в 13.0.0 без ключа NVD уходит пустой apiKey, и NVD отклоняет запросы
+	id("org.owasp.dependencycheck") version "12.2.2"
 }
 
 group = "ru.itmo.infosec"
@@ -34,6 +40,7 @@ dependencies {
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")
 	runtimeOnly("com.h2database:h2")
+	spotbugsPlugins("com.h3xstream.findsecbugs:findsecbugs-plugin:1.14.0")
 }
 
 kotlin {
@@ -52,3 +59,39 @@ configurations.named("runtimeClasspath") {
 	resolutionStrategy.activateDependencyLocking()
 }
 
+spotbugs {
+	toolVersion = "4.10.4"
+	effort = Effort.MAX
+	reportLevel = Confidence.LOW
+	excludeFilter = file("config/spotbugs-exclude.xml")
+}
+
+tasks.spotbugsMain {
+	reports.create("html") { required = true }
+	reports.create("text") { required = true }
+}
+
+tasks.spotbugsTest {
+	enabled = false
+}
+
+dependencyCheck {
+	scanConfigurations = listOf("runtimeClasspath")
+	failBuildOnCVSS = 7.0f
+	formats = listOf("HTML", "JSON")
+	outputDirectory = layout.buildDirectory.dir("reports/dependency-check")
+	nvd {
+		providers.environmentVariable("NVD_API_KEY").orNull
+			?.takeIf { it.isNotBlank() }
+			?.let { apiKey = it }
+	}
+	analyzers {
+		assemblyEnabled = false
+		msbuildEnabled = false
+		nuspecEnabled = false
+		ossIndex { enabled = false }
+		retirejs { enabled = false }
+		nodeAudit { enabled = false }
+		nodePackage { enabled = false }
+	}
+}

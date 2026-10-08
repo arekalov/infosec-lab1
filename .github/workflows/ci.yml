@@ -14,52 +14,85 @@ jobs:
   security:
     name: SAST и SCA
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # без ключа NVD первый прогон скачивает всю базу уязвимостей, дальше она берётся из кеша
+    timeout-minutes: 350
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: 'SAST: Semgrep'
-        run: |
-          set -o pipefail
-          pipx install semgrep==1.179.0
-          semgrep scan --config p/kotlin --config p/java --config p/secrets --error 2>&1 | tee semgrep-report.txt
-
-      - name: 'SCA: Trivy'
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      - name: JDK 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln
-          severity: CRITICAL,HIGH
-          format: table
-          output: trivy-report.txt
-          exit-code: '1'
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: 'SAST: SpotBugs + FindSecBugs'
+        run: ./gradlew --no-daemon spotbugsMain
+
+      - name: Восстановить базу NVD
+        if: ${{ !cancelled() }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/dependency-check-data
+          key: dependency-check-data-${{ github.run_id }}
+          restore-keys: dependency-check-data-
+
+      - name: Обновить базу NVD
+        id: nvd
+        if: ${{ !cancelled() }}
+        run: ./gradlew --no-daemon dependencyCheckUpdate
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
+      # отдельным шагом, чтобы база сохранилась, даже если анализ найдёт уязвимости
+      - name: Сохранить базу NVD
+        if: ${{ !cancelled() && steps.nvd.outcome == 'success' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/dependency-check-data
+          key: dependency-check-data-${{ github.run_id }}
+
+      - name: 'SCA: OWASP Dependency-Check'
+        if: ${{ !cancelled() && steps.nvd.outcome == 'success' }}
+        run: ./gradlew --no-daemon dependencyCheckAnalyze
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
       - name: Сводка отчётов
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           {
-            echo '### SAST: Semgrep'
-            echo '```'
-            if grep -q 'Scan Summary' semgrep-report.txt 2>/dev/null; then
-              sed -n '/Scan Summary/,$p' semgrep-report.txt
-            elif [ -f semgrep-report.txt ]; then
-              tail -n 15 semgrep-report.txt
+            echo '### SAST: SpotBugs + FindSecBugs'
+            if [ -f build/reports/spotbugs/main.txt ]; then
+              echo "Замечаний: $(grep -c . build/reports/spotbugs/main.txt || true)"
+              echo '```'
+              cat build/reports/spotbugs/main.txt
+              echo '```'
+            else
+              echo 'Отчёт не сформирован'
             fi
-            echo '```'
-            echo '### SCA: Trivy'
-            echo '```'
-            if [ -f trivy-report.txt ]; then cat trivy-report.txt; fi
-            echo '```'
+            echo '### SCA: OWASP Dependency-Check'
+            report=build/reports/dependency-check/dependency-check-report.json
+            if [ -f "$report" ]; then
+              jq -r '
+                "- Проверено зависимостей: \(.dependencies | length)",
+                "- С уязвимостями: \([.dependencies[] | select((.vulnerabilities // []) | length > 0)] | length)",
+                "- Подавлено ложных срабатываний: \([.dependencies[] | (.suppressedVulnerabilities // [])[]] | length)",
+                (.dependencies[] | select((.vulnerabilities // []) | length > 0)
+                  | "- \(.fileName): " + ([.vulnerabilities[] | "\(.name) (\(.severity))"] | join(", ")))
+              ' "$report" || echo 'Не удалось разобрать отчёт'
+            else
+              echo 'Отчёт не сформирован'
+            fi
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Сохранить отчёты
-        if: always()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: security-reports
           path: |
-            semgrep-report.txt
-            trivy-report.txt
+            build/reports/spotbugs/
+            build/reports/dependency-check/
           retention-days: 30

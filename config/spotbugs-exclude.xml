@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- data-классы Kotlin, JPA-сущности и внедрение зависимостей Spring хранят
+         и отдают ссылки на коллекции и бины; в серверном приложении нет чужого кода
+         в той же JVM, которому это могло бы помочь -->
+    <Match>
+        <Or>
+            <Bug pattern="EI_EXPOSE_REP"/>
+            <Bug pattern="EI_EXPOSE_REP2"/>
+        </Or>
+    </Match>
+
+    <!-- конструктор без аргументов генерирует плагин kotlin-jpa для Hibernate,
+         поля заполняет сам Hibernate при чтении из базы -->
+    <Match>
+        <Bug pattern="NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR"/>
+        <Package name="ru.itmo.infosec.recipes.domain.model"/>
+    </Match>
+
+    <!-- байткод, который компилятор Kotlin генерирует для map, ?. и ?: -->
+    <Match>
+        <Or>
+            <Bug pattern="BC_BAD_CAST_TO_ABSTRACT_COLLECTION"/>
+            <Bug pattern="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE"/>
+        </Or>
+    </Match>
+
+    <!-- информационная пометка FindSecBugs: каждый контроллер — точка входа,
+         доступ к ним настроен в SecurityConfig -->
+    <Match>
+        <Bug pattern="SPRING_ENDPOINT"/>
+        <Package name="ru.itmo.infosec.recipes.presentation.controller"/>
+    </Match>
+
+    <!-- заголовок Authorization и есть недоверенный ввод: токен из него
+         проверяется по подписи, алгоритму и сроку в NimbusJwtDecoder -->
+    <Match>
+        <Bug pattern="SERVLET_HEADER"/>
+        <Class name="ru.itmo.infosec.recipes.infrastructure.security.JwtAuthFilter"/>
+    </Match>
+</FindBugsFilter>
