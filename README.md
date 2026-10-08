@@ -146,6 +146,9 @@ SpotBugs нашёл одну настоящую проблему: `JwtAuthFilter
 вызваны особенностями байткода Kotlin и Spring, они исключены с объяснением в
 [`config/spotbugs-exclude.xml`](config/spotbugs-exclude.xml).
 
+Dependency-Check нашёл в Kotlin 2.3.21 уязвимость CVE-2026-53914 (CRITICAL, небезопасная
+десериализация в кеше сборки компилятора). Kotlin поднят до 2.4.21, где она закрыта.
+
 Последний успешный прогон: [Actions → CI](https://github.com/arekalov/infosec-lab1/actions/workflows/ci.yml).
 
 ![Прогон CI](docs/img/ci-run.png)
