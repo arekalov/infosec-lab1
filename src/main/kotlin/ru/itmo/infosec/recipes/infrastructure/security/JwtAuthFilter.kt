@@ -40,7 +40,9 @@ class JwtAuthFilter(private val jwtDecoder: JwtDecoder) : OncePerRequestFilter()
             authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
             SecurityContextHolder.getContext().authentication = authentication
         } catch (ex: JwtException) {
-            log.debug("Rejected JWT: {}", ex.message)
+            // сообщение может содержать куски присланного токена: без переводов строк
+            // в нём нельзя подделать новую запись лога
+            log.debug("Rejected JWT: {}", ex.message.orEmpty().replace('\r', '_').replace('\n', '_'))
             SecurityContextHolder.clearContext()
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED)
             return
