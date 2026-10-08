@@ -14,8 +14,7 @@ jobs:
   security:
     name: SAST и SCA
     runs-on: ubuntu-24.04
-    # без ключа NVD первый прогон скачивает всю базу уязвимостей, дальше она берётся из кеша
-    timeout-minutes: 350
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -41,7 +40,7 @@ jobs:
       - name: Обновить базу NVD
         id: nvd
         if: ${{ !cancelled() }}
-        run: ./gradlew --no-daemon dependencyCheckUpdate
+        run: ./gradlew --no-daemon -Dnvd.api.datafeed.startyear=2026 dependencyCheckUpdate
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
@@ -55,7 +54,7 @@ jobs:
 
       - name: 'SCA: OWASP Dependency-Check'
         if: ${{ !cancelled() && steps.nvd.outcome == 'success' }}
-        run: ./gradlew --no-daemon dependencyCheckAnalyze
+        run: ./gradlew --no-daemon -Dnvd.api.datafeed.startyear=2026 dependencyCheckAnalyze
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 

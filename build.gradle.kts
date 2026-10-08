@@ -77,10 +77,14 @@ tasks.spotbugsTest {
 
 dependencyCheck {
 	scanConfigurations = listOf("runtimeClasspath")
+	// Spring Boot добавляет в цепочку runtimeClasspath конфигурацию testAndDevelopmentOnly,
+	// и без этого флага плагин считает её тестовой и ничего не сканирует
+	skipTestGroups = false
 	failBuildOnCVSS = 7.0f
 	formats = listOf("HTML", "JSON")
 	outputDirectory = layout.buildDirectory.dir("reports/dependency-check")
 	nvd {
+		datafeedUrl = "https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz"
 		providers.environmentVariable("NVD_API_KEY").orNull
 			?.takeIf { it.isNotBlank() }
 			?.let { apiKey = it }
