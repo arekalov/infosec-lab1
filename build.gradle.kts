@@ -29,7 +29,11 @@ repositories {
 }
 
 dependencies {
-	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+	implementation("org.springframework.boot:spring-boot-starter-data-jpa") {
+		// JAXB нужен Hibernate только для XML-маппингов, которых в проекте нет;
+		// в jaxb-core XXE CVE-2026-92877 без исправленной версии
+		exclude(group = "org.glassfish.jaxb")
+	}
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-security")
