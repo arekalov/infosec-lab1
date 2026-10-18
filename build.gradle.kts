@@ -8,8 +8,6 @@ plugins {
 	id("io.spring.dependency-management") version "1.1.7"
 	kotlin("plugin.jpa") version "2.4.21"
 	id("com.github.spotbugs") version "6.5.12"
-	// в 13.0.0 без ключа NVD уходит пустой apiKey, и NVD отклоняет запросы
-	id("org.owasp.dependencycheck") version "12.2.2"
 }
 
 group = "ru.itmo.infosec"
@@ -73,29 +71,4 @@ tasks.spotbugsMain {
 
 tasks.spotbugsTest {
 	enabled = false
-}
-
-dependencyCheck {
-	scanConfigurations = listOf("runtimeClasspath")
-	// Spring Boot добавляет в цепочку runtimeClasspath конфигурацию testAndDevelopmentOnly,
-	// и без этого флага плагин считает её тестовой и ничего не сканирует
-	skipTestGroups = false
-	failBuildOnCVSS = 7.0f
-	formats = listOf("HTML", "JSON")
-	outputDirectory = layout.buildDirectory.dir("reports/dependency-check")
-	nvd {
-		datafeedUrl = "https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz"
-		providers.environmentVariable("NVD_API_KEY").orNull
-			?.takeIf { it.isNotBlank() }
-			?.let { apiKey = it }
-	}
-	analyzers {
-		assemblyEnabled = false
-		msbuildEnabled = false
-		nuspecEnabled = false
-		ossIndex { enabled = false }
-		retirejs { enabled = false }
-		nodeAudit { enabled = false }
-		nodePackage { enabled = false }
-	}
 }

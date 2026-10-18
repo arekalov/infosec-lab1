@@ -1,33 +1,27 @@
 # Recipe API
 
-REST API для хранения кулинарных рецептов.
-
-Каждый пользователь работает только со своими рецептами. Доступ к данным — по JWT-токену,
-выданному после входа.
+REST API для хранения кулинарных рецептов на Kotlin и Spring Boot. Каждый пользователь работает
+только со своими рецептами, доступ к ним — по JWT-токену, выданному после входа.
 
 ## API
 
-Публичны только `/auth/register` и `/auth/login`. Остальное требует заголовок
+Открыты только `/auth/register` и `/auth/login`, остальные запросы требуют заголовок
 `Authorization: Bearer <token>`.
 
-| Метод | Путь | Доступ | Назначение |
-|---|---|---|---|
-| `POST` | `/auth/register` | открыт | Регистрация: `{username, password}` |
-| `POST` | `/auth/login` | открыт | Вход, выдача JWT |
-| `GET` | `/api/data` | JWT | Список своих рецептов; `?q=`, `?page=`, `?size=` |
-| `POST` | `/api/recipes` | JWT | Создать рецепт |
-| `GET` | `/api/recipes/{id}` | JWT + владелец | Прочитать рецепт |
-| `PUT` | `/api/recipes/{id}` | JWT + владелец | Обновить рецепт |
-| `DELETE` | `/api/recipes/{id}` | JWT + владелец | Удалить рецепт |
+| Метод | Путь | Назначение |
+|---|---|---|
+| `POST` | `/auth/register` | Регистрация: `{username, password}` |
+| `POST` | `/auth/login` | Вход, выдача JWT |
+| `GET` | `/api/data` | Список своих рецептов, поиск `?q=` |
+| `POST` | `/api/recipes` | Создать рецепт |
+| `GET`, `PUT`, `DELETE` | `/api/recipes/{id}` | Прочитать, изменить, удалить свой рецепт |
 
 ## Меры защиты
 
-### SQL-инъекции (OWASP A03)
+### SQL-инъекции
 
-Все обращения к базе идут через Spring Data JPA, SQL из строк нигде не склеивается.
-Простые выборки описаны derived-методами, например `findByIdAndOwnerUsername`: Spring Data
-строит по имени метода параметризованный запрос. Поиск по названию написан на JPQL
-с именованными параметрами:
+Все запросы к базе идут через Spring Data JPA с параметрами, SQL из строк нигде не склеивается.
+Поиск по названию написан на JPQL с именованными параметрами:
 
 ```kotlin
 @Query("""
@@ -35,124 +29,55 @@ REST API для хранения кулинарных рецептов.
     WHERE r.owner.username = :username
       AND LOWER(r.title) LIKE LOWER(CONCAT('%', :query, '%'))
 """)
-fun search(@Param("username") username: String, @Param("query") query: String, pageable: Pageable): Page<Recipe>
 ```
 
-Значения `:username` и `:query` уходят в JDBC как параметры `PreparedStatement` и не становятся
-частью текста запроса. Поэтому поиск по строке `' OR '1'='1` возвращает пустой список,
-а не все рецепты.
+Значения `:username` и `:query` передаются как параметры `PreparedStatement` и не становятся
+частью запроса, поэтому поиск по строке `' OR '1'='1` возвращает пустой список.
 
-Код: [`SpringDataRecipeRepository.kt`](src/main/kotlin/ru/itmo/infosec/recipes/infrastructure/persistence/SpringDataRecipeRepository.kt).
+### XSS
 
-### XSS (OWASP A03)
+1. **Экранирование на выходе.** Текстовые поля рецепта проходят через OWASP Java Encoder
+   (`Encode.forHtml`), и `<script>` возвращается клиенту как `&lt;script&gt;`.
+2. **Проверка на входе.** Bean Validation ограничивает длину полей и символы логина, иначе ответ 400.
+3. **Заголовки ответа.** `Content-Security-Policy: default-src 'none'`, `X-Content-Type-Options: nosniff`
+   и `X-Frame-Options: DENY` запрещают браузеру исполнять скрипты из ответа.
 
-Защита построена в три слоя.
+### Аутентификация
 
-1. **Экранирование на выходе.** Каждое текстовое поле рецепта перед отправкой проходит через
-   OWASP Java Encoder, поэтому `<script>` возвращается клиенту как `&lt;script&gt;`:
-   ```kotlin
-   title = Encode.forHtml(title),
-   description = Encode.forHtml(description),
-   ingredients = ingredients.map(Encode::forHtml),
-   ```
-2. **Проверка на входе.** Bean Validation ограничивает длину полей рецепта, а логин может
-   содержать только латиницу, цифры и `_ . -`. Запрос, не прошедший проверку, получает 400.
-3. **Заголовки ответа.** Spring Security добавляет `X-Content-Type-Options: nosniff`,
-   `X-Frame-Options: DENY`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`
-   и `Referrer-Policy: no-referrer`. Даже открытый в браузере ответ не исполнит скрипты
-   и не встроится во фрейм.
-
-Код: [`RecipeMapper.kt`](src/main/kotlin/ru/itmo/infosec/recipes/presentation/mapper/RecipeMapper.kt),
-[`RecipeRequest.kt`](src/main/kotlin/ru/itmo/infosec/recipes/presentation/dto/RecipeRequest.kt),
-[`SecurityConfig.kt`](src/main/kotlin/ru/itmo/infosec/recipes/infrastructure/security/SecurityConfig.kt).
-
-### Хранение паролей (OWASP A07)
-
-Пароли хешируются bcrypt с cost 12, то есть 2¹² раундов. Соль генерируется для каждого
-пароля и хранится внутри хеша, поэтому одинаковые пароли дают разные хеши. В базе лежит
-только 60-символьный хеш, открытый пароль нигде не сохраняется и не логируется. Минимальная
-длина пароля 12 символов.
-
-Код: [`BCryptPasswordHasher.kt`](src/main/kotlin/ru/itmo/infosec/recipes/infrastructure/security/BCryptPasswordHasher.kt),
-[`SecurityConfig.kt`](src/main/kotlin/ru/itmo/infosec/recipes/infrastructure/security/SecurityConfig.kt).
-
-### Аутентификация по JWT (OWASP A07)
-
-1. **Выдача токена.** `POST /auth/login` сверяет пароль с хешем и выдаёт JWT, подписанный
-   HS256. В токене логин (`sub`), роли, издатель, время выдачи и срок действия 15 минут.
-2. **Ключ подписи.** Ключ берётся только из переменной `JWT_SECRET`, в репозитории его нет.
-   Он должен быть в Base64 и не короче 32 байт, иначе приложение не запустится.
-3. **Проверка на каждом запросе.** Фильтр `JwtAuthFilter` достаёт токен из заголовка
-   `Authorization: Bearer` и проверяет через `NimbusJwtDecoder` подпись, алгоритм и срок.
-   Декодер принимает только HS256, поэтому токены с `alg: none` или чужим алгоритмом
-   отклоняются. При любой ошибке запрос завершается ответом 401 и до контроллера не доходит.
-4. **Правила доступа.** Открыты только `/auth/register` и `/auth/login`, остальные пути требуют
-   аутентификации. Сессии выключены, состояние хранится только в токене. CSRF-защита не нужна:
-   токен передаётся в заголовке, а не в cookie.
-
-Код: [`JwtTokenProvider.kt`](src/main/kotlin/ru/itmo/infosec/recipes/infrastructure/security/JwtTokenProvider.kt),
-[`JwtAuthFilter.kt`](src/main/kotlin/ru/itmo/infosec/recipes/infrastructure/security/JwtAuthFilter.kt),
-[`JwtConfig.kt`](src/main/kotlin/ru/itmo/infosec/recipes/infrastructure/security/JwtConfig.kt),
-[`JwtProperties.kt`](src/main/kotlin/ru/itmo/infosec/recipes/infrastructure/security/JwtProperties.kt).
-
-### Подбор пароля и перебор логинов (OWASP A07)
-
-После 5 неудачных попыток входа за 5 минут логин блокируется, сервер отвечает 429. Неверный
-пароль и несуществующий логин дают одинаковый ответ 401. Для несуществующего логина сервер
-всё равно сверяет пароль с bcrypt-заглушкой, поэтому и время ответа не выдаёт, есть ли
-такой пользователь.
-
-Код: [`AuthService.kt`](src/main/kotlin/ru/itmo/infosec/recipes/application/service/AuthService.kt),
-[`InMemoryLoginAttemptLimiter.kt`](src/main/kotlin/ru/itmo/infosec/recipes/infrastructure/security/InMemoryLoginAttemptLimiter.kt).
-
-### Доступ к чужим данным (OWASP A01)
-
-Каждый запрос к рецептам содержит условие на владельца, а логин владельца берётся из
-проверенного токена, а не из тела запроса. На чужой рецепт API отвечает 404, а не 403,
-чтобы не раскрывать, что такой рецепт существует.
-
-Код: [`RecipeService.kt`](src/main/kotlin/ru/itmo/infosec/recipes/application/service/RecipeService.kt).
-
-### Утечка внутренних деталей
-
-Ошибки возвращаются в формате RFC 7807: код, обезличенное сообщение и, для ошибок валидации,
-список неверных полей. Stacktrace и текст исключений наружу не уходят, они пишутся только в лог.
-
-Код: [`ApiExceptionHandler.kt`](src/main/kotlin/ru/itmo/infosec/recipes/presentation/handler/ApiExceptionHandler.kt),
-[`application.yml`](src/main/resources/application.yml).
-
-### Уязвимые зависимости
-
-Версии runtime-зависимостей зафиксированы в `gradle.lockfile`. Tomcat и Jackson подняты выше
-версий из BOM Spring Boot, в которых есть известные уязвимости. Веб-консоль H2 отключена.
-Каждый push в `main` и pull request проверяется в CI сканером зависимостей OWASP Dependency-Check.
-
-Код: [`build.gradle.kts`](build.gradle.kts).
+1. **Пароли.** Хешируются bcrypt с cost 12 и своей солью у каждого пароля, в открытом виде нигде
+   не хранятся.
+2. **Выдача JWT.** `POST /auth/login` выдаёт токен с подписью HS256 и сроком 15 минут. Ключ берётся
+   из переменной окружения `JWT_SECRET`, в репозитории его нет.
+3. **Проверка JWT.** Фильтр `JwtAuthFilter` на каждом запросе проверяет подпись, алгоритм и срок
+   токена. Токены с `alg: none` и любые ошибки дают 401.
+4. **Перебор паролей.** После 5 неудачных входов за 5 минут логин блокируется с ответом 429.
+5. **Чужие данные.** Владелец рецепта берётся из токена, на чужой рецепт API отвечает 404.
 
 ## CI/CD
 
-| Шаг | Инструмент | Что проверяет |
-|---|---|---|
-| `SAST: SpotBugs + FindSecBugs` | SpotBugs 4.10.4 с плагином FindSecBugs 1.14.0 | Скомпилированный код приложения: инъекции, небезопасное логирование, слабая криптография и другие ошибки |
-| `SCA: OWASP Dependency-Check` | Dependency-Check 12.2.2 по `runtimeClasspath`, база уязвимостей NVD | Известные уязвимости зависимостей, включая транзитивные |
+Workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) запускается на каждый push
+и на pull request в `main`:
 
-Любое замечание SpotBugs и уязвимость с оценкой CVSS 7.0 и выше у Dependency-Check завершают job
-с ошибкой. Отчёты обоих сканеров печатаются в сводку прогона и хранятся 30 дней в артефакте
-`security-reports`. База уязвимостей NVD кешируется между прогонами.
+- **SAST:** SpotBugs с плагином FindSecBugs проверяет скомпилированный код.
+- **SCA:** Snyk проверяет runtime-зависимости, включая транзитивные, и завершает job с ошибкой
+  при уязвимости уровня high или critical.
 
-SpotBugs нашёл одну настоящую проблему: `JwtAuthFilter` писал в лог текст ошибки разбора токена
-как есть, и переводы строк из присланного токена позволяли подделать записи лога
-(`CRLF_INJECTION_LOGS`). Теперь `\r` и `\n` заменяются перед записью. Остальные срабатывания
-вызваны особенностями байткода Kotlin и Spring, они исключены с объяснением в
-[`config/spotbugs-exclude.xml`](config/spotbugs-exclude.xml).
+Отчёты выводятся в сводку прогона и сохраняются артефактом `security-reports`.
 
-Dependency-Check нашёл в Kotlin 2.3.21 уязвимость CVE-2026-53914 (CRITICAL, небезопасная
-десериализация в кеше сборки компилятора). Kotlin поднят до 2.4.21, где она закрыта.
+Найденные проблемы:
 
-Последний успешный прогон: [Actions → CI](https://github.com/arekalov/infosec-lab1/actions/workflows/ci.yml).
+- SpotBugs нашёл подделку записей лога через переводы строк в токене (`CRLF_INJECTION_LOGS`
+  в `JwtAuthFilter`), теперь `\r` и `\n` заменяются перед записью. Ложные срабатывания на байткод Kotlin
+  исключены в [`config/spotbugs-exclude.xml`](config/spotbugs-exclude.xml).
+- В Kotlin 2.3.21 была уязвимость CVE-2026-53914 (CRITICAL), Kotlin поднят до 2.4.21.
+- Snyk Code отмечает отключённую защиту от CSRF (CWE-352). Это ложное срабатывание: токен
+  передаётся только в заголовке `Authorization`, cookie и сессий нет, поэтому браузер не подставит
+  его в чужой запрос.
+
+Последний успешный прогон: <https://github.com/arekalov/infosec-lab1/actions/runs/37792968803>
 
 ![Прогон CI](docs/img/ci-run.png)
 
-![Шаги SpotBugs и Dependency-Check](docs/img/ci-steps.png)
+![Шаги SpotBugs и Snyk](docs/img/ci-steps.png)
 
 ![Список прогонов](docs/img/actions.png)

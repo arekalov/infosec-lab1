@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -29,34 +28,20 @@ jobs:
       - name: 'SAST: SpotBugs + FindSecBugs'
         run: ./gradlew --no-daemon spotbugsMain
 
-      - name: Восстановить базу NVD
+      - name: Snyk CLI
         if: ${{ !cancelled() }}
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04 # v1.0.0
         with:
-          path: ~/.gradle/dependency-check-data
-          key: dependency-check-data-${{ github.run_id }}
-          restore-keys: dependency-check-data-
+          snyk-version: v1.1308.1
 
-      - name: Обновить базу NVD
-        id: nvd
+      - name: 'SCA: Snyk'
         if: ${{ !cancelled() }}
-        run: ./gradlew --no-daemon -Dnvd.api.datafeed.startyear=2026 dependencyCheckUpdate
+        run: |
+          mkdir -p build/reports/snyk
+          snyk test --configuration-matching='^runtimeClasspath$' --severity-threshold=high \
+            --json-file-output=build/reports/snyk/snyk.json
         env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-
-      # отдельным шагом, чтобы база сохранилась, даже если анализ найдёт уязвимости
-      - name: Сохранить базу NVD
-        if: ${{ !cancelled() && steps.nvd.outcome == 'success' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.gradle/dependency-check-data
-          key: dependency-check-data-${{ github.run_id }}
-
-      - name: 'SCA: OWASP Dependency-Check'
-        if: ${{ !cancelled() && steps.nvd.outcome == 'success' }}
-        run: ./gradlew --no-daemon -Dnvd.api.datafeed.startyear=2026 dependencyCheckAnalyze
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Сводка отчётов
         if: ${{ !cancelled() }}
@@ -71,15 +56,16 @@ jobs:
             else
               echo 'Отчёт не сформирован'
             fi
-            echo '### SCA: OWASP Dependency-Check'
-            report=build/reports/dependency-check/dependency-check-report.json
+            echo '### SCA: Snyk'
+            report=build/reports/snyk/snyk.json
             if [ -f "$report" ]; then
               jq -r '
-                "- Проверено зависимостей: \(.dependencies | length)",
-                "- С уязвимостями: \([.dependencies[] | select((.vulnerabilities // []) | length > 0)] | length)",
-                "- Подавлено ложных срабатываний: \([.dependencies[] | (.suppressedVulnerabilities // [])[]] | length)",
-                (.dependencies[] | select((.vulnerabilities // []) | length > 0)
-                  | "- \(.fileName): " + ([.vulnerabilities[] | "\(.name) (\(.severity))"] | join(", ")))
+                if .error then "Ошибка Snyk: \(.error)" else
+                  "- Проверено зависимостей: \(.dependencyCount)",
+                  "- Уязвимостей уровня high и critical: \(.uniqueCount)",
+                  (.vulnerabilities | unique_by(.id)[]
+                    | "- \(.packageName)@\(.version): \(.id) (\(.severity))")
+                end
               ' "$report" || echo 'Не удалось разобрать отчёт'
             else
               echo 'Отчёт не сформирован'
@@ -93,5 +79,5 @@ jobs:
           name: security-reports
           path: |
             build/reports/spotbugs/
-            build/reports/dependency-check/
+            build/reports/snyk/
           retention-days: 30
