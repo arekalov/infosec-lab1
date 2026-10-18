@@ -64,19 +64,7 @@ Workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) запускае
 
 Отчёты выводятся в сводку прогона и сохраняются артефактом `security-reports`.
 
-Найденные проблемы:
-
-- SpotBugs нашёл подделку записей лога через переводы строк в токене (`CRLF_INJECTION_LOGS`
-  в `JwtAuthFilter`), теперь `\r` и `\n` заменяются перед записью. Ложные срабатывания на байткод Kotlin
-  исключены в [`config/spotbugs-exclude.xml`](config/spotbugs-exclude.xml).
-- В Kotlin 2.3.21 была уязвимость CVE-2026-53914 (CRITICAL), Kotlin поднят до 2.4.21.
-- Snyk нашёл XXE CVE-2026-92877 (high) в `jaxb-core`, исправленной версии нет. JAXB нужен Hibernate
-  только для XML-маппингов, которых в проекте нет, поэтому он исключён из зависимостей.
-- Snyk Code отмечает отключённую защиту от CSRF (CWE-352). Это ложное срабатывание: токен
-  передаётся только в заголовке `Authorization`, cookie и сессий нет, поэтому браузер не подставит
-  его в чужой запрос.
-
-Последний успешный прогон: <https://github.com/arekalov/infosec-lab1/actions/runs/37792968803>
+Последний успешный прогон: <https://github.com/arekalov/infosec-lab1/actions/runs/39140146295>
 
 ![Прогон CI](docs/img/ci-run.png)
 
